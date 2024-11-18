@@ -45,6 +45,7 @@ If you don’t have nodemon installed globally, run:
 The server will be running at http://localhost:5002 (or the port specified in .env).
 
 ### Folder Structure:
+```
 project-root/
 ├── controllers/
 │   ├── professorController.js
@@ -62,6 +63,7 @@ project-root/
 ├── README.md
 ├── package.json
 ├── server.js
+```
 
 - controllers/: Contains logic for handling route requests.
 - middleware/: Contains custom middleware for authentication and HTTP clients (axios) for the database and vision APIs.
