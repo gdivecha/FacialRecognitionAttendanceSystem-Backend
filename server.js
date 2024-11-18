@@ -1,5 +1,3 @@
-const dotenv = require('dotenv');
-
 require('dotenv').config();
 
 // Core imports
@@ -7,9 +5,6 @@ const express = require('express');
 const cors = require('cors'); // For handling CORS
 const morgan = require('morgan'); // For logging HTTP requests
 const professorRoutes = require('./routes/professorRoutes');
-
-// Load environment variables
-dotenv.config();
 
 // Initialize the Express app
 const app = express();
