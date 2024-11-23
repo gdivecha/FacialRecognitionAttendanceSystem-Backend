@@ -5,6 +5,7 @@ const express = require('express');
 const cors = require('cors'); // For handling CORS
 const morgan = require('morgan'); // For logging HTTP requests
 const professorRoutes = require('./routes/professorRoutes');
+const studentRoutes = require('./routes/studentRoutes');
 
 // Initialize the Express app
 const app = express();
@@ -16,6 +17,7 @@ app.use(morgan('dev')); // Log requests to the console
 
 // Base routes
 app.use('/api/professor', professorRoutes); // Professor-related APIs
+app.use('/api/student', studentRoutes); // Make sure this line is included
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -38,4 +40,3 @@ const PORT = process.env.PORT || 5002; // Use port from .env or default to 5002
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
-
