@@ -1,11 +1,11 @@
 // studentRoutes.js
 const express = require('express');
-const studentController = require('../controllers/studentController');
+const {addStudent, deleteStudent} = require('../controllers/studentController');
 const dbAuthenticate = require('../middleware/dbAuthenticate');
 
 const router = express.Router();
 
-// Route to add a student
-router.post('/addStudent', dbAuthenticate, studentController.addStudent);
+router.post('/addStudent', dbAuthenticate, addStudent);
+router.delete('/deleteStudent', dbAuthenticate, deleteStudent);
 
 module.exports = router;
