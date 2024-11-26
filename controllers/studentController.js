@@ -307,8 +307,49 @@ const getStudentImages = async (req, res) => {
   }
 };
 
+const deleteStudentImage = async (req, res) => {
+    try {
+        const { studentID, imageID } = req.query;
+
+        // Validate inputs
+        if (!studentID || !imageID) {
+            return res.status(400).json({
+                message: 'Both studentID and imageID query parameters are required',
+            });
+        }
+
+        // Step 1: Call the deleteStudentImage DB API
+        const deleteResponse = await databaseApiClient.delete('/api/student/deleteStudentImage', {
+            params: {
+                studentID,
+                imageID,
+            },
+        });
+
+        // Step 2: Check response and handle success or failure
+        if (deleteResponse.data.message === `Image with ID ${imageID} deleted successfully`) {
+            return res.status(200).json({
+                message: `Image with ID ${imageID} deleted successfully`,
+                studentID,
+            });
+        }
+
+        // If something unexpected happens
+        return res.status(400).json({
+            message: deleteResponse.data.message || 'Failed to delete the image',
+        });
+    } catch (error) {
+        // Handle any error during API calls
+        res.status(500).json({
+            message: 'Error deleting student image',
+            error: error.message,
+        });
+    }
+};
+
 module.exports = { 
     addStudent,
     deleteStudent,
-    getStudentImages
+    getStudentImages,
+    deleteStudentImage,
 };
