@@ -260,8 +260,55 @@ const deleteStudent = async (req, res) => {
   }
 };
 
+const getStudentImages = async (req, res) => {
+  try {
+    const { studentID } = req.query;
+
+    // Validate studentID input
+    if (!studentID) {
+      return res.status(400).json({
+        message: 'studentID query parameter is required',
+      });
+    }
+
+    // Step 1: Get the object ID of the student from the database
+    const studentResponse = await databaseApiClient.get(
+      '/api/student/getStudent',
+      { params: { studentID } }
+    );
+
+    const studentObjectID = studentResponse.data.studentId;
+    if (!studentObjectID) {
+      return res.status(404).json({
+        message: 'Student not found',
+      });
+    }
+
+    // Step 2: Get all face images associated with the student
+    const faceImagesResponse = await databaseApiClient.get(
+      '/api/student/getStudentFaceImages',
+      { params: { studentObjectId: studentObjectID } }
+    );
+
+    const faceImages = faceImagesResponse.data;
+    if (!faceImages || faceImages.length === 0) {
+      return res.status(404).json({
+        message: 'No face images found for the student',
+      });
+    }
+
+    // Return face images to the frontend
+    res.status(200).json(faceImages);
+  } catch (error) {
+    res.status(500).json({
+      message: 'Error fetching student face images',
+      error: error.message,
+    });
+  }
+};
+
 module.exports = { 
     addStudent,
-    deleteStudent
+    deleteStudent,
+    getStudentImages
 };
-  
