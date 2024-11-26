@@ -6,6 +6,7 @@ const cors = require('cors'); // For handling CORS
 const morgan = require('morgan'); // For logging HTTP requests
 const professorRoutes = require('./routes/professorRoutes');
 const studentRoutes = require('./routes/studentRoutes');
+const attendanceRoutes = require('./routes/attendanceRoutes');
 
 // Initialize the Express app
 const app = express();
@@ -18,6 +19,7 @@ app.use(morgan('dev')); // Log requests to the console
 // Base routes
 app.use('/api/professor', professorRoutes); // Professor-related APIs
 app.use('/api/student', studentRoutes); // Make sure this line is included
+app.use('/api/attendance', attendanceRoutes); // Make sure this line is included
 
 // Health check endpoint
 app.get('/health', (req, res) => {
