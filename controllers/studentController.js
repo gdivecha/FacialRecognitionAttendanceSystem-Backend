@@ -1,4 +1,11 @@
 const databaseApiClient = require('../config/dbApiClient');
+const multer = require('multer');
+
+// Multer configuration for handling file uploads
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
+
+const FormData = require('form-data');
 
 const addStudent = async (req, res) => {
     try {
@@ -347,9 +354,49 @@ const deleteStudentImage = async (req, res) => {
     }
 };
 
+const addStudentImages = async (req, res) => {
+  try {
+    const { studentID } = req.body; // Extract student ID from the request body
+    const files = req.files; // Extract uploaded image files from the request
+
+    // Validate inputs
+    if (!studentID || !files || files.length === 0) {
+      return res.status(400).json({
+        message: 'Student ID and images are required',
+      });
+    }
+
+    // Prepare form-data for the DB API call
+    const formData = new FormData();
+    formData.append('studentID', studentID);
+
+    files.forEach((file) => {
+      formData.append('images', file.buffer, file.originalname); // Add files to form-data
+    });
+
+    // Call the DB API to upload images
+    const response = await databaseApiClient.put(
+      '/api/student/uploadStudentFaceImages',
+      formData,
+      { headers: formData.getHeaders() }
+    );
+
+    // Forward the DB API response back to the client
+    res.status(response.status).json(response.data);
+  } catch (error) {
+    // Handle errors and return a 500 status code
+    res.status(500).json({
+      message: 'Error in addStudentImages API',
+      error: error.message,
+    });
+  }
+};
+
 module.exports = { 
     addStudent,
     deleteStudent,
     getStudentImages,
     deleteStudentImage,
+    addStudentImages,
+    upload, 
 };
