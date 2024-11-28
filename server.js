@@ -12,8 +12,13 @@ const attendanceRoutes = require('./routes/attendanceRoutes');
 const app = express();
 
 // Middleware
+app.use(cors({ // Enable CORS with specific settings
+  origin: "http://localhost:3000", // Frontend origin
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  allowedHeaders: ["Content-Type", "Authorization"], // Include 'Authorization' for protected routes
+}));
+
 app.use(express.json()); // Parse JSON request bodies
-app.use(cors()); // Enable CORS
 app.use(morgan('dev')); // Log requests to the console
 
 // Base routes
