@@ -437,10 +437,34 @@ const getAllStudents = async (req, res) => {
           continue; // Skip if no students are enrolled in the course
         }
 
-        // Step 3: Fetch details for each student enrolled in the course
+        // Step 3: Fetch the course code using courseObjectId
+        let courseID = null;
+        try {
+          const courseIDResponse = await databaseApiClient.get(
+            `/api/course/getCourseIDFromObjectID`,
+            {
+              params: { courseObjectID: courseObjectId },
+            }
+          );
+
+          if (courseIDResponse.data && courseIDResponse.data.courseID) {
+            courseID = courseIDResponse.data.courseID;
+          } else {
+            console.log(`Course ID not found for courseObjectId: ${courseObjectId}`);
+            continue; // Skip this course if the course ID is not found
+          }
+        } catch (courseIDError) {
+          console.error(
+            `Error fetching courseID for courseObjectId: ${courseObjectId}`,
+            courseIDError.message
+          );
+          continue; // Skip this course if there's an error fetching the course ID
+        }
+
+        // Step 4: Fetch details for each student enrolled in the course
         for (const studentObjectID of studentObjectIDs) {
           try {
-            // Step 3a: Fetch full student information using the studentObjectID
+            // Step 4a: Fetch full student information using the studentObjectID
             const studentInfoResponse = await databaseApiClient.get(
               `/api/student/getStudentInformation`,
               {
@@ -463,7 +487,7 @@ const getAllStudents = async (req, res) => {
               lastName,
               email,
               studentID,
-              courseObjectId, // Directly include courseObjectId instead of courseID
+              courseID, // Use the fetched courseID
             });
           } catch (studentError) {
             console.error(
