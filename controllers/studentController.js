@@ -1,4 +1,5 @@
 const databaseApiClient = require('../config/dbApiClient');
+const compVisionApiClient = require('../config/compVisionApiClient');
 const multer = require('multer');
 
 // Multer configuration for handling file uploads
@@ -392,11 +393,221 @@ const addStudentImages = async (req, res) => {
   }
 };
 
+const getAllStudents = async (req, res) => {
+  const { professorEmail } = req.query;
+
+  if (!professorEmail) {
+    return res.status(400).json({ message: 'Professor email is required' });
+  }
+
+  try {
+    // Step 1: Fetch all courses taught by the professor
+    const coursesResponse = await databaseApiClient.get(`/api/course/getCoursesFromProfEmail`, {
+      params: { professorEmail },
+    });
+
+    const courses = coursesResponse.data;
+
+    if (!Array.isArray(courses) || courses.length === 0) {
+      return res.status(200).json({
+        message: 'No courses found for the provided professor email',
+        students: [],
+      });
+    }
+
+    const allStudents = [];
+
+    // Step 2: Iterate over each course taught by the professor
+    for (const courseObjectId of courses) {
+      try {
+        console.log(`Processing courseObjectId: ${courseObjectId}`);
+
+        // Step 2a: Get all students enrolled in the course
+        const studentsResponse = await databaseApiClient.get(
+          `/api/student/getStudentsEnrolledInCourse`,
+          {
+            params: { courseObjectId },
+          }
+        );
+
+        const studentObjectIDs = studentsResponse.data;
+
+        if (!Array.isArray(studentObjectIDs) || studentObjectIDs.length === 0) {
+          console.log(`No students found for courseObjectId: ${courseObjectId}`);
+          continue; // Skip if no students are enrolled in the course
+        }
+
+        // Step 3: Fetch details for each student enrolled in the course
+        for (const studentObjectID of studentObjectIDs) {
+          try {
+            // Step 3a: Fetch full student information using the studentObjectID
+            const studentInfoResponse = await databaseApiClient.get(
+              `/api/student/getStudentInformation`,
+              {
+                params: { studentObjectID },
+              }
+            );
+
+            if (
+              !studentInfoResponse.data ||
+              studentInfoResponse.data.message === 'Student not found'
+            ) {
+              continue; // Skip if student information is not found
+            }
+
+            const { firstName, lastName, email, studentID } = studentInfoResponse.data;
+
+            // Add the student information to the final array
+            allStudents.push({
+              firstName,
+              lastName,
+              email,
+              studentID,
+              courseObjectId, // Directly include courseObjectId instead of courseID
+            });
+          } catch (studentError) {
+            console.error(
+              `Error fetching information for studentObjectID: ${studentObjectID}`,
+              studentError.message
+            );
+          }
+        }
+      } catch (courseError) {
+        console.error(`Error processing courseObjectId: ${courseObjectId}`, courseError.message);
+      }
+    }
+
+    // Return the collected student data
+    return res.status(200).json(allStudents);
+  } catch (error) {
+    console.error('Error fetching students:', error.message);
+    return res.status(500).json({
+      message: 'An error occurred while fetching students',
+      error: error.message,
+    });
+  }
+};
+
+const processCapturedPhoto = async (req, res) => {
+  try {
+    const { studentID, courseCode } = req.body; // Extract student ID and course code
+    const imageFile = req.file; // Extract single image file from the request
+
+    // Validate inputs
+    if (!studentID || !courseCode || !imageFile) {
+      return res.status(400).json({
+        message: "Student ID, course code, and image file are required",
+      });
+    }
+
+    // Step 1: Get the student object ID
+    const studentResponse = await databaseApiClient.get(
+      `/api/student/getStudent`,
+      { params: { studentID } }
+    );
+
+    const studentObjectID = studentResponse.data?.studentId;
+    if (!studentObjectID) {
+      return res.status(404).json({
+        message: "Student not found",
+      });
+    }
+
+    // Step 2: Retrieve all face images for the student
+    const studentImagesResponse = await databaseApiClient.get(
+      `/api/student/getStudentFaceImages`,
+      { params: { studentObjectId: studentObjectID } }
+    );
+
+    const studentImages = studentImagesResponse.data || [];
+    const totalStudentFaceImages = studentImages.length;
+
+    if (totalStudentFaceImages === 0) {
+      return res.status(200).json({
+        validMatch: false,
+        message: "No student face images found.",
+      });
+    }
+
+    // Step 3: Initialize variables for matching logic
+    let totalMatches = 0;
+
+    // Step 4: Compare the input image with each stored student image
+    for (const image of studentImages) {
+      // Prepare form-data payload for the Computer Vision API
+      const formData = new FormData();
+      formData.append("anchor", Buffer.from(image.data), {
+        filename: "anchor.jpeg",
+        contentType: "image/jpeg",
+      });
+      formData.append("validation", imageFile.buffer, {
+        filename: imageFile.originalname,
+        contentType: "image/jpeg",
+      });
+
+      // Call the Computer Vision API
+      const predictResponse = await compVisionApiClient.post(
+        "/predict",
+        formData,
+        {
+          headers: formData.getHeaders(),
+        }
+      );
+
+      // Increment match count if images match
+      if (predictResponse.data.is_match) {
+        totalMatches++;
+      }
+    }
+
+    // Step 5: Determine match validity
+    const matchPercentage = (totalMatches / totalStudentFaceImages) * 100;
+    const validMatch = matchPercentage > 80;
+
+    // Step 6: If valid match, create an attendance record
+    if (validMatch) {
+      // Step 6.1: Create attendance record
+      const attendanceResponse = await databaseApiClient.post(
+        `/api/attendance/createAttendanceRecord`,
+        { courseCode }
+      );
+
+      const attendanceId = attendanceResponse.data.attendanceId;
+
+      // Step 6.2: Attach attendance to the student
+      await databaseApiClient.put(`/api/student/attachAttendanceToStudent`, {
+        studentId: studentObjectID,
+        attendanceId,
+      });
+
+      return res.status(200).json({
+        validMatch: true,
+        message: "Attendance recorded successfully.",
+      });
+    }
+
+    // If no valid match, return failure
+    return res.status(200).json({
+      validMatch: false,
+      message: "Face match failed.",
+    });
+  } catch (error) {
+    // Handle errors
+    console.error("Error in processCapturedPhoto API:", error.message);
+    res.status(500).json({
+      message: "Error in processCapturedPhoto API",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = { 
     addStudent,
     deleteStudent,
     getStudentImages,
     deleteStudentImage,
     addStudentImages,
+    processCapturedPhoto,
+    getAllStudents,
     upload, 
 };
